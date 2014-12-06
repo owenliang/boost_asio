@@ -139,6 +139,7 @@ public:
     acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     boost::asio::ip::tcp::endpoint endpoint(address, port);
     if (acceptor_.bind(endpoint, errcode) || acceptor_.listen(1024, errcode)) {
+      acceptor_.close();
       return false;
     }
     SocketPtr socket(new boost::asio::ip::tcp::socket(*io_service_));
