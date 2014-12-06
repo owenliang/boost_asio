@@ -146,6 +146,7 @@ public:
     return true;
   }
   void Stop() {
+    boost::lock_guard<boost::mutex> guard(socket_mutex_);
     boost::system::error_code errcode;
     if (acceptor_.close(errcode)) {
       std::cerr << "Close Acceptor Error" << std::endl;
@@ -172,6 +173,7 @@ private:
       std::cout << "Accept Error" << std::endl;
     }
     SocketPtr new_socket(new boost::asio::ip::tcp::socket(*io_service_));
+    boost::lock_guard<boost::mutex> guard(socket_mutex_);
     acceptor_.async_accept(*new_socket, boost::bind(&EchoServer::AcceptHandler, shared_from_this(), new_socket, _1));
   }
   void CheckSocketStatus(ConnPtr conn, TimerPtr socket_timer, const boost::system::error_code& error) {
@@ -201,6 +203,7 @@ private:
   typedef std::set<ConnPtr> ConnSet;
   typedef ConnSet::iterator ConnSetIter;
   boost::atomic<bool> stopped_;
+  boost::mutex socket_mutex_;
   boost::mutex conn_set_mutex_;
   ConnSet conn_set_;
   IOServicePtr io_service_;
