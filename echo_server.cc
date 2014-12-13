@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <exception>
 #include <iostream>
 #include <string>
 #include <deque>
@@ -13,6 +14,9 @@
 #include "boost/thread/thread.hpp"
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "boost/atomic.hpp"
+#include "boost/program_options/options_description.hpp"
+#include "boost/program_options/parsers.hpp"
+#include "boost/program_options/variables_map.hpp"
 
 namespace {
 class EchoServer;
@@ -235,15 +239,46 @@ void AsioThreadMain(IOServicePtr io_service) {
   // 从而使所有socket析构, 最终io_service上将无任何事件, 自动退出线程.
   io_service->run();
 }
+bool ParseCommands(int argc, char** argv, boost::program_options::variables_map* options) {
+  boost::program_options::options_description desc("Usage");
+  desc.add_options()
+      ("help,h", "show how to use this program")
+      ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port server binds to")
+      ("config,c", boost::program_options::value<std::string>(), "read config from file");
+  try {
+    // 优先命令行
+    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), *options); 
+    if (options->count("help")) { 
+      std::cerr << desc << std::endl;
+      return false;
+    }
+    if (options->count("config")) { // 配置文件作为补充
+      std::string cfile = (*options)["config"].as<std::string>();
+      boost::program_options::store(boost::program_options::parse_config_file<char>(cfile.c_str(), desc), *options);
+    }
+    boost::program_options::notify(*options); // 最终触发参数校验
+  } catch (std::exception& except) {
+    std::cerr << except.what() << std::endl;
+    std::cerr << desc << std::endl;
+    return false;
+  }
+  return true;
+}
 }
 
 int main(int argc, char** argv) {
+  boost::program_options::variables_map options;
+  if (!ParseCommands(argc, argv, &options)) {
+    return -1;
+  }
   SetupSignalHandler();
 
   IOServicePtr io_service(new boost::asio::io_service());
 
+  unsigned short port = options["port"].as<unsigned short>();
+
   EchoServerPtr echo_server(new EchoServer(io_service));
-  if (!echo_server->Start("0.0.0.0", 7566)) {
+  if (!echo_server->Start("0.0.0.0", port)) {
     return -1;
   }
   boost::thread_group asio_threads;
