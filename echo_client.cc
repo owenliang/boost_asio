@@ -277,6 +277,7 @@ bool ParseCommands(int argc, char** argv, boost::program_options::variables_map*
   boost::program_options::options_description desc("Usage");
   desc.add_options()
       ("help", "show how to use this program")
+      ("thread,t", boost::program_options::value<uint32_t>()->default_value(12), "number of threads of asio")
       ("host,h", boost::program_options::value<std::string>()->required(), "the tcp host client connects to")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port client connects to")
       ("concurrent,n", boost::program_options::value<uint32_t>()->default_value(1), "the number of connections to server")
@@ -319,8 +320,9 @@ int main(int argc, char** argv) {
   if (!echo_client->Start()) {
     return -1;
   }
+  uint32_t thread_num = options["thread"].as<uint32_t>();
   boost::thread_group asio_threads;
-  for (int i = 0; i < 64; ++i) {
+  for (uint32_t i = 0; i < thread_num; ++i) {
     asio_threads.create_thread(boost::bind(AsioThreadMain, io_service));
   }
 
