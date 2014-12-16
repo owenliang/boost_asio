@@ -36,7 +36,7 @@ typedef boost::shared_ptr<boost::asio::deadline_timer> TimerPtr;
 
 // 准则2:
 // 操作1个socket, 在多线程条件下一定要加锁处理, 一把大锁解决一切问题, 其他用法都是非线程安全的.
-// 也就是说同步close/async_read/async_write这三个函数调用即可.
+// 也就是说同步close/async_read/async_write/async_connect这四个函数调用即可.
 
 class Connection : public boost::enable_shared_from_this<Connection> {
 public:

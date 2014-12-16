@@ -2,7 +2,7 @@
 #coding:gbk
 
 #工作路径.
-WORKROOT('../../')
+WORKROOT('../')
 
 #使用硬链接copy.
 CopyUsingHardLink(True)
@@ -11,7 +11,7 @@ CopyUsingHardLink(True)
 #ENABLE_MULTI_LIBS(True)
 
 #C预处理器参数.
-#CPPFLAGS('-D_GNU_SOURCE -D__STDC_LIMIT_MACROS -DVERSION=\\\"1.9.8.7\\\"')
+CPPFLAGS('-D_GNU_SOURCE -D__STDC_LIMIT_MACROS -DVERSION=\\\"1.9.8.7\\\"')
 #为32位目标编译指定额外的预处理参数
 #CPPFLAGS_32('-D_XOPEN_SOURE=500')
 
@@ -31,31 +31,26 @@ UBRPCFLAGS('--compack')
 INCPATHS('. ./include ./output ./output/include')
 
 #使用库
-#LIBS('./libecho-sample.a')
+#LIBS('./libasio.a')
 
 #链接参数.
 LDFLAGS('-lpthread -lcrypto -lrt')
 
 #依赖模块
-#CONFIGS('third-64/boost@boost_1-55-0-200_PD_BL')
 CONFIGS('third-64/boost@1.56.0.100')
 CONFIGS('third-64/tcmalloc@tcmalloc_2-1-0-100_PD_BL')
-
 #为32位/64位指定不同的依赖路径.
 #CONFIGS_32('lib2/ullib')
 #CONFIGS_64('lib2-64/ullib')
 
-user_sources='echo_server.cc'
-user_headers=''
-
-#可执行文件
-Application('echo-sample',Sources(user_sources))
-#生成产品库
 TARGET('output-bin', CleanCommands('rm -rf output;'))
+#可执行文件
+Application('echo_server',Sources('echo_server.cc'))
+Application('echo_client',Sources('echo_client.cc'))
 #静态库
-#StaticLibrary('echo-sample',Sources(user_sources),HeaderFiles(user_headers))
+#StaticLibrary('asio',Sources(user_sources),HeaderFiles(user_headers))
 #共享库
-#SharedLibrary('echo-sample',Sources(user_sources),HeaderFiles(user_headers))
+#SharedLibrary('asio',Sources(user_sources),HeaderFiles(user_headers))
 #子目录
 #Directory('demo')
 
