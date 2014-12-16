@@ -68,12 +68,9 @@ public:
     ConnStatus cur_status = status_.exchange(kClosed);
     if (cur_status != kClosed) { // 即便重复调用socket的close是没有问题的, 但是这里也保证Close只能被调用一次.
       if (cur_status != kResolving && cur_status != kResolveError) { // 除了解析域名状态外, 其他状态的socket都已经open了.
-        {
         boost::lock_guard<boost::mutex> guard(socket_mutex_);
         boost::system::error_code errcode;
         assert(socket_->close(errcode) == boost::system::errc::success);
-        }
-        EchoMsg(StringPtr(new std::string("hehe")));
       }
     }
   }
@@ -220,7 +217,7 @@ private:
   }
   void CheckSocketStatus(ConnPtr conn, TimerPtr socket_timer, const boost::system::error_code& error) {
     // 1, EchoClient已经被Stop调用, 那么尽快停止timer释放掉对EchoClient的引用计数, 让EchoClient析构结束服务。
-    // 2, 判断conn->status()==kError则Close连接并从ConnSet中移除, 重新创建新连接.
+    // 2, 判断conn->status()==kError/kResolveError则Close连接并从ConnSet中移除, 重新创建新连接.
     // 3, 判断conn->status()==kClosed则从ConnSet中移除.(将来用户可以获取SocketPtr并随时调用Close)
     // 4, 连接正常, 继续发起下一次timer.
     boost::lock_guard<boost::mutex> guard(conn_set_mutex_);
@@ -228,19 +225,19 @@ private:
     assert(iter != conn_set_.end());
     if (stopped_.load()) {
       // case 1
-      std::cout << "case 1" << std::endl;
+      //std::cout << "case 1" << std::endl;
       return;
     } else if (conn->status() == Connection::kError || conn->status() == Connection::kResolveError) { // case 2
-      std::cout << "case 2" << std::endl;
+      //std::cout << "case 2" << std::endl;
       conn->Close();
       conn_set_.erase(conn); // TODO:
       conn = AddNewConnection(host_, port_);
     } else if (conn->status() == Connection::kClosed) {// case 3
-      std::cout << "case 3" << std::endl;
+      //std::cout << "case 3" << std::endl;
       conn_set_.erase(conn); // TODO:
       conn = AddNewConnection(host_, port_);
     }
-    std::cout << "case 4" << std::endl; // case 4
+    //std::cout << "case 4" << std::endl; // case 4
     socket_timer->expires_from_now(boost::posix_time::seconds(1));
     socket_timer->async_wait(boost::bind(&EchoClient::CheckSocketStatus, shared_from_this(), conn, socket_timer, _1));
   }
