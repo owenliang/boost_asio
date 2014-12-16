@@ -276,8 +276,8 @@ void AsioThreadMain(IOServicePtr io_service) {
 bool ParseCommands(int argc, char** argv, boost::program_options::variables_map* options) {
   boost::program_options::options_description desc("Usage");
   desc.add_options()
-      ("help,h", "show how to use this program")
-      ("addr,a", boost::program_options::value<std::string>()->required(), "the tcp host client connects to")
+      ("help", "show how to use this program")
+      ("host,h", boost::program_options::value<std::string>()->required(), "the tcp host client connects to")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port client connects to")
       ("concurrent,n", boost::program_options::value<uint32_t>()->default_value(1), "the number of connections to server")
       ("config,c", boost::program_options::value<std::string>(), "read config from file");
@@ -311,7 +311,7 @@ int main(int argc, char** argv) {
 
   IOServicePtr io_service(new boost::asio::io_service());
 
-  std::string host = options["addr"].as<std::string>();
+  std::string host = options["host"].as<std::string>();
   unsigned short port = options["port"].as<unsigned short>();
   uint32_t concurrent = options["concurrent"].as<uint32_t>();
 

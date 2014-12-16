@@ -242,7 +242,7 @@ void AsioThreadMain(IOServicePtr io_service) {
 bool ParseCommands(int argc, char** argv, boost::program_options::variables_map* options) {
   boost::program_options::options_description desc("Usage");
   desc.add_options()
-      ("help,h", "show how to use this program")
+      ("help", "show how to use this program")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port server binds to")
       ("config,c", boost::program_options::value<std::string>(), "read config from file");
   try {
