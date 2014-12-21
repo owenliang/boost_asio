@@ -18,8 +18,99 @@
 #include "boost/program_options/options_description.hpp"
 #include "boost/program_options/parsers.hpp"
 #include "boost/program_options/variables_map.hpp"
+#include "boost/log/common.hpp"
+#include "boost/log/core.hpp"
+#include "boost/log/sinks.hpp"
+#include "boost/log/attributes.hpp"
+#include "boost/log/expressions.hpp"
+#include "boost/log/trivial.hpp"
+#include "boost/log/utility/setup/common_attributes.hpp"
+#include "boost/log/utility/exception_handler.hpp"
+#include "boost/log/support/date_time.hpp"
 
 namespace {
+// ¶¨ÒåÈ«¾ÖÎ¨Ò»µÄsource, Ê¹ÓÃÄÚÖÃµÄseverity_level×÷ÎªÈÕÖ¾¼¶±ğ, Ê¹ÓÃseverity_logger_mtÌá¹©¶àÏß³Ì°²È«
+// µÄÈÕÖ¾source.
+BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(global_logger_src, 
+    boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level>);
+
+// ¶¨ÒåÊä³öÈÕÖ¾µÄºê, µ÷ÓÃBOOST_LOG_FUNCTIONÀ´Ìá¹©name_scopeÊôĞÔµÄÖµ, ²¢Í¨¹ıBOOST_LOG_SEVÏòÈ«¾ÖsourceÊä³ö´ø¼¶±ğµÄ
+// ÈÕÖ¾ĞĞ, ÈÕÖ¾Á÷Ïò: 
+// global_logger_src(¹ıÂËÊä³öÈÕÖ¾¼¶±ğ·¶Î§) -> core -> synchronous_sink(frontend,¹ıÂËÌØ¶¨¼¶±ğ) -> text_file_backend
+#define LOG(level) BOOST_LOG_FUNCTION();BOOST_LOG_SEV(global_logger_src::get(), boost::log::trivial::level)
+
+boost::shared_ptr<boost::log::sinks::text_file_backend> BuildSinkBackend(const std::string& log_dir, const std::string& sink_name) {
+  boost::shared_ptr<boost::log::sinks::text_file_backend> backend = boost::make_shared<boost::log::sinks::text_file_backend>(
+        boost::log::keywords::file_name = log_dir + "/echo_client." + sink_name + ".%Y%m%d.%H%M.%N.log",
+        boost::log::keywords::rotation_size = 1024ULL * 1024 * 1024,// Ã¿1GBÇĞ»»Ò»¸öÎÄ¼ş
+        boost::log::keywords::open_mode = std::ios::app, // ´ò¿ªÎÄ¼ş²ÉÓÃ×·¼ÓĞ´
+        boost::log::keywords::auto_flush = true // Ã¿ĞĞÈÕÖ¾Á¢¼´Ë¢µ½´ÅÅÌ
+    );
+  try {
+    backend->set_file_collector(boost::log::sinks::file::make_collector(
+          boost::log::keywords::target = log_dir + "/" + sink_name, // ÇĞ»»ºóµÄÈÕÖ¾mvµ½´ËÄ¿Â¼ÏÂ
+          boost::log::keywords::max_size = 20ULL * 1024 * 1024 * 1024 // Ä¿Â¼ÏÂÈÕÖ¾×Ü´óĞ¡²»³¬¹ı20GB,·ñÔò»áÌÔÌ­×îÀÏµÄÎÄ¼ş.
+          )
+        );
+    backend->scan_for_files(); // É¨ÃèÄ¿Â¼ÏÂÒÑÓĞÎÄ¼ş,ÒÔ±ãµİÔöÎÄ¼şĞòºÅÒÔ¼°×öÈÕÖ¾ÎÄ¼ş»ØÊÕ.
+  } catch (std::exception& except) {
+    // ¿ÉÄÜÒòÎªÄ¿Â¼È¨ÏŞÔ­ÒòÊ§°Ü,ÎÒÃÇÖ»´òÓ¡Ò»Ìõ¾¯¸æ²¢¼ÌĞø, Ò»µ©ÓÃ»§»Ö¸´Ä¿Â¼È¨ÏŞ, boost.log»áÁ¢¼´»Ö¸´¹¤×÷.
+    std::cerr << except.what() << std::endl; 
+  }
+  return backend;
+}
+void InitLogging(bool open_debug, const std::string& log_dir) {
+  // Ìí¼ÓÍ¨ÓÃÊôĞÔ(Ê±¼ä,½ø³ÌID,Ïß³ÌID)
+  boost::log::add_common_attributes();
+  // »ñÈ¡core, ÒÔ±ãÏòÆä×¢²ásink
+  boost::shared_ptr<boost::log::core> core = boost::log::core::get();
+  // Ìí¼Ó×÷ÓÃÓòÊôĞÔ£¨º¯ÊıÃû,Ô´ÎÄ¼şÃû,ĞĞºÅ)
+  core->add_global_attribute("Scope", boost::log::attributes::named_scope());
+  // ºöÂÔËùÓĞlog¿â¿ÉÄÜÅ×³öµÄÒì³£
+  core->set_exception_handler(boost::log::make_exception_suppressor());
+  // ¹Ø±Õµ÷ÊÔÈÕÖ¾
+  if (!open_debug) {
+    core->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") >= boost::log::trivial::info);
+  }
+  typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sync_sink_frontend;
+  // ¹¹Ôì3¸ösink:
+  // 1,severity<=debug¼¶±ğµÄÊä³öµ½sink_trace_debug
+  boost::log::formatter scope_formatter = boost::log::expressions::stream << "[" <<
+          boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S") <<
+          "] [" << boost::log::expressions::attr<boost::log::attributes::current_process_id::value_type>("ProcessID") << 
+          "-" << boost::log::expressions::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID") << "] [" <<
+          boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <<
+          "] [" << boost::log::expressions::format_named_scope("Scope", boost::log::keywords::format = "%n[%f:%l]", 
+            boost::log::keywords::depth = 1) << "] " << boost::log::expressions::smessage;
+  boost::shared_ptr<boost::log::sinks::text_file_backend> sink_trace_debug_backend = BuildSinkBackend(log_dir, "trace_debug");
+  boost::shared_ptr<sync_sink_frontend> sink_trace_debug_frontend(new sync_sink_frontend(sink_trace_debug_backend));
+  sink_trace_debug_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= boost::log::trivial::debug && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") >= boost::log::trivial::trace);
+  sink_trace_debug_frontend->set_formatter(scope_formatter);
+  core->add_sink(sink_trace_debug_frontend);
+  // 2,debug<severity<=warning¼¶±ğµ½sink_info_warning
+  boost::log::formatter non_scope_formatter = boost::log::expressions::stream << "[" <<
+          boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S") <<
+          "] [" << boost::log::expressions::attr<boost::log::attributes::current_process_id::value_type>("ProcessID") << 
+          "-" << boost::log::expressions::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID") << "] [" <<
+          boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <<
+          "] " << boost::log::expressions::smessage;
+  boost::shared_ptr<boost::log::sinks::text_file_backend> sink_info_warning_backend = BuildSinkBackend(log_dir, "info_warning");
+  boost::shared_ptr<sync_sink_frontend> sink_info_warning_frontend(new sync_sink_frontend(sink_info_warning_backend));
+  sink_info_warning_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= 
+      boost::log::trivial::warning && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") > 
+    boost::log::trivial::debug);
+  sink_info_warning_frontend->set_formatter(non_scope_formatter);
+  core->add_sink(sink_info_warning_frontend);
+  // 3,warning<severity<=fatal¼¶±ğÊä³öµ½sink_error_fatal
+  boost::shared_ptr<boost::log::sinks::text_file_backend> sink_error_fatal_backend = BuildSinkBackend(log_dir, "error_fatal");
+  boost::shared_ptr<sync_sink_frontend> sink_error_fatal_frontend(new sync_sink_frontend(sink_info_warning_backend));
+  sink_error_fatal_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= 
+      boost::log::trivial::fatal && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") > 
+    boost::log::trivial::warning);
+  sink_error_fatal_frontend->set_formatter(non_scope_formatter);
+  core->add_sink(sink_error_fatal_frontend);
+}
+
 class EchoClient;
 
 typedef boost::shared_ptr<EchoClient> EchoClientPtr;
@@ -55,7 +146,7 @@ public:
   }
   ~Connection() {
     // ¿ÉÒÔÔÚÕâÀï½«write_queueÖĞµÄ´ı·¢ÏûÏ¢½øĞĞÖØÊÔµÈÂß¼­´¦Àí
-    std::cout << __FUNCTION__ << std::endl;
+    LOG(trace) << __FUNCTION__;
   }
   void Start() {
     std::ostringstream str_port;
@@ -75,6 +166,7 @@ public:
     }
   }
   void EchoMsg(StringPtr msg) {
+    LOG(debug) << "EchoMsg: " << *msg;
     boost::lock_guard<boost::mutex> guard(socket_mutex_);
     write_queue_.push_back(msg);
     if (write_queue_.size() == 1 && status_.load() == kConnected) {
@@ -85,7 +177,7 @@ public:
 private:
   void ResolveHandler(const boost::system::error_code& error, boost::asio::ip::tcp::resolver::iterator iterator) {
     // Resolved
-    std::cout << __FUNCTION__ << std::endl;
+    LOG(trace) << __FUNCTION__;
     if (!error) { // ½âÎö³É¹¦, Ñ¡ÔñÒ»¸öIP·¢Æğasync_connect.
       boost::asio::ip::tcp::resolver::iterator end;
       if (iterator != end) {
@@ -94,20 +186,20 @@ private:
         boost::lock_guard<boost::mutex> guard(socket_mutex_);
         ConnStatus expected = kResolving;
         if (!status_.compare_exchange_strong(expected, kConnecting)) {
-          std::cout << "ResolveHandler, Status Is Not Resolving(always kClosed) While Resolved." << std::endl;
+          LOG(debug) << "ResolveHandler, Status Is Not Resolving(always kClosed) While Resolved.";
           return;
         }
         socket_->async_connect(endpoint, boost::bind(&Connection::ConnectHandler, shared_from_this(), _1));
         return;
       }
     } else if (error == boost::asio::error::operation_aborted) { // ËäÈ»´úÂëÀï²»»ácancel resolver, µ«ÒÀ¾ÉÊµÏÖÕâ¸öÂß¼­ÒÔ±ãÔÊĞíÉÏ²ã¶Ô³¬Ê±½âÎö½øĞĞcancel.
-      std::cout << "Connection ResolveHandler Canceled." << std::endl;
+      LOG(trace) << "Connection ResolveHandler Canceled.";
       return;
     }
     // Ã»ÓĞ½âÎöµ½IP»òÕß½âÎö·¢ÉúÁË´íÎó, ÉèÖÃÁ¬½ÓÎª´íÎó×´Ì¬.
     ConnStatus expected = kResolving;
     if (status_.compare_exchange_strong(expected, kResolveError)) {
-      std::cout << "ResolveHandler Error." << std::endl;
+      LOG(warning) << "ResolveHandler Error.";
     }
   }
   void ConnectHandler(const boost::system::error_code& error) {
@@ -115,7 +207,7 @@ private:
       boost::lock_guard<boost::mutex> guard(socket_mutex_);
       ConnStatus expected = kConnecting;
       if (!status_.compare_exchange_strong(expected, kConnected)) {
-        std::cout << "ConnectHandler, Status Is Not Connecting(always kClosed) While Connected." << std::endl;
+        LOG(debug) << "ConnectHandler, Status Is Not Connecting(always kClosed) While Connected.";
         return;
       }
       socket_->async_receive(boost::asio::buffer(msgbuf_, sizeof(msgbuf_)), boost::bind(&Connection::ReadHandler, shared_from_this(), _1, _2));
@@ -125,11 +217,11 @@ private:
         async_write(*socket_, boost::asio::buffer(*next_msg), boost::bind(&Connection::WriteHandler, shared_from_this(), _1, _2));
       }
     } else if (error == boost::asio::error::operation_aborted) {
-      std::cout << "Connection ConnectHandler Canceled." << std::endl;
+      LOG(trace) << "Connection ConnectHandler Canceled.";
     } else {
       ConnStatus expected = kConnecting;
       if (status_.compare_exchange_strong(expected, kError)) {
-        std::cout << "ConnectHandler Error." << std::endl;
+        LOG(warning) << "ConnectHandler Error.";
       }
     }
   }
@@ -144,11 +236,11 @@ private:
       // ÕâÀïÕ¹Ê¾Ò»ÏÂÈçºÎÔÚ¶àÏß³ÌasioÏÂÕıÈ·µÄÊ¹ÓÃasync_writeÓĞĞòµÄ·¢ËÍecho, ²¢ÇÒ´ı·¢ËÍÏûÏ¢¶ÓÁĞÒÔ±ãÔÚsocketÊ§Ğ§Ê±ÓĞ»ú»á·¢ËÍÏûÏ¢ÖØ·¢.
       EchoMsg(StringPtr(new std::string(msgbuf_, bytes_transferred)));
     } else if (error == boost::asio::error::operation_aborted) {
-      std::cout << "Connection ReadHandler Canceled." << std::endl;
+      LOG(trace) << "Connection ReadHandler Canceled.";
     } else {
       ConnStatus expected = kConnected;
       if (status_.compare_exchange_strong(expected, kError)) {
-        std::cout << "ReadHandler Error." << std::endl;
+        LOG(warning) << "ReadHandler Error.";
       }
     }
   }
@@ -162,11 +254,11 @@ private:
         async_write(*socket_, boost::asio::buffer(*next_msg), boost::bind(&Connection::WriteHandler, shared_from_this(), _1, _2));
       }
     } else if (error == boost::asio::error::operation_aborted) {
-      std::cout << "Connection WriteHandler Canceled." << std::endl;
+      LOG(trace) << "Connection WriteHandler Canceled.";
     } else {
       ConnStatus expected = kConnected;
       if (status_.compare_exchange_strong(expected, kError)) {
-        std::cout << "WriteHandler Error." << std::endl;
+        LOG(warning) << "WriteHandler Error.";
       }
     }
   }
@@ -188,7 +280,7 @@ public:
   }
   ~EchoClient() {
     // ÔÚStopºóÖ÷Ïß³ÌÊÍ·ÅÒıÓÃ¼ÆÊı, µÈ´ıio_service´¦ÀíÍêÊ£ÓàÊÂ¼şºóÎö¹¹, ¿ÉÒÔCloseµôËùÓĞSocket²¢ÊÍ·ÅÒıÓÃ¼ÆÊı.
-    std::cout << __FUNCTION__ << std::endl;
+    LOG(trace) << __FUNCTION__;
     boost::lock_guard<boost::mutex> guard(conn_set_mutex_);
     for (ConnSetIter iter = conn_set_.begin(); iter != conn_set_.end(); ++iter) {
       (*iter)->Close();
@@ -217,7 +309,7 @@ private:
   }
   void CheckSocketStatus(ConnPtr conn, TimerPtr socket_timer, const boost::system::error_code& error) {
     // 1, EchoClientÒÑ¾­±»Stopµ÷ÓÃ, ÄÇÃ´¾¡¿ìÍ£Ö¹timerÊÍ·Åµô¶ÔEchoClientµÄÒıÓÃ¼ÆÊı, ÈÃEchoClientÎö¹¹½áÊø·şÎñ¡£
-    // 2, ÅĞ¶Ïconn->status()==kError/kResolveErrorÔòCloseÁ¬½Ó²¢´ÓConnSetÖĞÒÆ³ı, ÖØĞÂ´´½¨ĞÂÁ¬½Ó.
+    // 2, ÅĞ¶Ïconn->status()==kError/kResolveErrorÔòCloseÁ¬½Ó²¢´ÓConnSetÖĞÒÆ³ı, ÖØÂ´´½¨ĞÂÁ¬½Ó.
     // 3, ÅĞ¶Ïconn->status()==kClosedÔò´ÓConnSetÖĞÒÆ³ı.(½«À´ÓÃ»§¿ÉÒÔ»ñÈ¡SocketPtr²¢ËæÊ±µ÷ÓÃClose)
     // 4, Á¬½ÓÕı³£, ¼ÌĞø·¢ÆğÏÂÒ»´Îtimer.
     boost::lock_guard<boost::mutex> guard(conn_set_mutex_);
@@ -225,19 +317,19 @@ private:
     assert(iter != conn_set_.end());
     if (stopped_.load()) {
       // case 1
-      //std::cout << "case 1" << std::endl;
+      //LOG(debug) << "case 1";
       return;
     } else if (conn->status() == Connection::kError || conn->status() == Connection::kResolveError) { // case 2
-      //std::cout << "case 2" << std::endl;
+      //LOG(debug) << "case 2";
       conn->Close();
-      conn_set_.erase(conn); // TODO:
+      conn_set_.erase(conn); 
       conn = AddNewConnection(host_, port_);
     } else if (conn->status() == Connection::kClosed) {// case 3
-      //std::cout << "case 3" << std::endl;
-      conn_set_.erase(conn); // TODO:
+      //LOG(debug) << "case 3";
+      conn_set_.erase(conn); 
       conn = AddNewConnection(host_, port_);
     }
-    //std::cout << "case 4" << std::endl; // case 4
+    //LOG(debug) << "case 4"; // case 4
     socket_timer->expires_from_now(boost::posix_time::seconds(1));
     socket_timer->async_wait(boost::bind(&EchoClient::CheckSocketStatus, shared_from_this(), conn, socket_timer, _1));
   }
@@ -281,7 +373,9 @@ bool ParseCommands(int argc, char** argv, boost::program_options::variables_map*
       ("host,h", boost::program_options::value<std::string>()->required(), "the tcp host client connects to")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port client connects to")
       ("concurrent,n", boost::program_options::value<uint32_t>()->default_value(1), "the number of connections to server")
-      ("config,c", boost::program_options::value<std::string>(), "read config from file");
+      ("config,c", boost::program_options::value<std::string>(), "read config from file")
+      ("log,l", boost::program_options::value<std::string>()->default_value("./client_log"), "the directory to write log")
+      ("debug,d", "open debug mode for logging");
   try {
     // ÓÅÏÈÃüÁîĞĞ
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), *options);
@@ -308,6 +402,8 @@ int main(int argc, char** argv) {
   if (!ParseCommands(argc, argv, &options)) {
     return -1;
   }
+  InitLogging(options.count("debug"), options["log"].as<std::string>());
+  
   SetupSignalHandler();
 
   IOServicePtr io_service(new boost::asio::io_service());
@@ -332,6 +428,6 @@ int main(int argc, char** argv) {
   echo_client->Stop(); // ¹Ø±Õ¿Í»§¶Ë
   echo_client.reset();   // ÊÍ·ÅÒıÓÃ¼ÆÊı, ÈÃecho_clientÎö¹¹.
   asio_threads.join_all(); // µÈ´ıasio×ÔÈ»ÍË³ö
-  std::cout << "Stopped.. .." << std::endl;
+  LOG(info) << "Stopped.. ..";
   return 0;
 }

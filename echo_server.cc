@@ -28,18 +28,35 @@
 #include "boost/log/support/date_time.hpp"
 
 namespace {
+// 定义全局唯一的source, 使用内置的severity_level作为日志级别, 使用severity_logger_mt提供多线程安全
+// 的日志source.
 BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(global_logger_src, 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level>);
 
+// 定义输出日志的宏, 调用BOOST_LOG_FUNCTION来提供name_scope属性的值, 并通过BOOST_LOG_SEV向全局source输出带级别的
+// 日志行, 日志流向: 
+// global_logger_src(过滤输出日志级别范围) -> core -> synchronous_sink(frontend,过滤特定级别) -> text_file_backend
 #define LOG(level) BOOST_LOG_FUNCTION();BOOST_LOG_SEV(global_logger_src::get(), boost::log::trivial::level)
 
 boost::shared_ptr<boost::log::sinks::text_file_backend> BuildSinkBackend(const std::string& log_dir, const std::string& sink_name) {
-  return boost::make_shared<boost::log::sinks::text_file_backend>(
+  boost::shared_ptr<boost::log::sinks::text_file_backend> backend = boost::make_shared<boost::log::sinks::text_file_backend>(
         boost::log::keywords::file_name = log_dir + "/echo_server." + sink_name + ".%Y%m%d.%H%M.%N.log",
-        boost::log::keywords::rotation_size = 1024 * 1024 * 1024,                                     
-        boost::log::keywords::open_mode = std::ios::app,
-        boost::log::keywords::auto_flush = true
-    );   
+        boost::log::keywords::rotation_size = 1024ULL * 1024 * 1024,// 每1GB切换一个文件
+        boost::log::keywords::open_mode = std::ios::app, // 打开文件采用追加写
+        boost::log::keywords::auto_flush = true // 每行日志立即刷到磁盘
+    );
+  try {
+    backend->set_file_collector(boost::log::sinks::file::make_collector(
+          boost::log::keywords::target = log_dir + "/" + sink_name, // 切换后的日志mv到此目录下
+          boost::log::keywords::max_size = 20ULL * 1024 * 1024 * 1024 // 目录下日志总大小不超过20GB,否则会淘汰最老的文件.
+          )
+        );
+    backend->scan_for_files(); // 扫描目录下已有文件,以便递增文件序号以及做日志文件回收.
+  } catch (std::exception& except) {
+    // 可能因为目录权限原因失败,我们只打印一条警告并继续, 一旦用户恢复目录权限, boost.log会立即恢复工作.
+    std::cerr << except.what() << std::endl; 
+  }
+  return backend;
 }
 void InitLogging(bool open_debug, const std::string& log_dir) {
   // 添加通用属性(时间,进程ID,线程ID)
@@ -320,7 +337,7 @@ bool ParseCommands(int argc, char** argv, boost::program_options::variables_map*
       ("thread,t", boost::program_options::value<uint32_t>()->default_value(12), "number of threads of asio")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port server binds to")
       ("config,c", boost::program_options::value<std::string>(), "read config from file")
-      ("log,l", boost::program_options::value<std::string>()->default_value("./log"), "the directory to write log")
+      ("log,l", boost::program_options::value<std::string>()->default_value("./server_log"), "the directory to write log")
       ("debug,d", "open debug mode for logging");
   try {
     // 优先命令行
