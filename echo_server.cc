@@ -33,7 +33,7 @@ BOOST_LOG_INLINE_GLOBAL_LOGGER_DEFAULT(global_logger_src,
 
 #define LOG(level) BOOST_LOG_FUNCTION();BOOST_LOG_SEV(global_logger_src::get(), boost::log::trivial::level)
 
-void InitLogging(bool open_debug) {
+void InitLogging(bool open_debug, const std::string& log_dir) {
   // 添加通用属性(时间,进程ID,线程ID)
   boost::log::add_common_attributes();
   // 获取core, 以便向其注册sink
@@ -55,7 +55,7 @@ void InitLogging(bool open_debug) {
   
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_trace_debug_backend =
     boost::make_shared<boost::log::sinks::text_file_backend>(
-        boost::log::keywords::file_name = "./log/echo_server.trace_debug.%Y%m%d.%H%M.%N.log",                                        
+        boost::log::keywords::file_name = log_dir + "/echo_server.trace_debug.%Y%m%d.%H%M.%N.log",
         boost::log::keywords::rotation_size = 1024 * 1024 * 1024,                                     
         boost::log::keywords::open_mode = std::ios::app,
         boost::log::keywords::auto_flush = true
@@ -74,7 +74,7 @@ void InitLogging(bool open_debug) {
   
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_info_warning_backend =
     boost::make_shared<boost::log::sinks::text_file_backend>(
-        boost::log::keywords::file_name = "./log/echo_server.info_warning.%Y%m%d.%H%M.%N.log", 
+        boost::log::keywords::file_name = log_dir + "/echo_server.info_warning.%Y%m%d.%H%M.%N.log", 
         boost::log::keywords::rotation_size = 1024 * 1024 * 1024,                                     
         boost::log::keywords::open_mode = std::ios::app,
         boost::log::keywords::auto_flush = true
@@ -94,7 +94,7 @@ void InitLogging(bool open_debug) {
   
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_error_fatal_backend =
     boost::make_shared<boost::log::sinks::text_file_backend>(
-        boost::log::keywords::file_name = "./log/echo_server.error_fatal.%Y%m%d.%H%M.%N.log",                                        
+        boost::log::keywords::file_name = log_dir + "/echo_server.error_fatal.%Y%m%d.%H%M.%N.log",                                        
         boost::log::keywords::rotation_size = 1024 * 1024 * 1024,                                     
         boost::log::keywords::open_mode = std::ios::app,
         boost::log::keywords::auto_flush = true
@@ -340,6 +340,7 @@ bool ParseCommands(int argc, char** argv, boost::program_options::variables_map*
       ("thread,t", boost::program_options::value<uint32_t>()->default_value(12), "number of threads of asio")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port server binds to")
       ("config,c", boost::program_options::value<std::string>(), "read config from file")
+      ("log,l", boost::program_options::value<std::string>()->default_value("./log"), "the directory to write log")
       ("debug,d", "open debug mode for logging");
   try {
     // 优先命令行
@@ -367,7 +368,7 @@ int main(int argc, char** argv) {
   if (!ParseCommands(argc, argv, &options)) {
     return -1;
   }
-  InitLogging(options.count("debug"));
+  InitLogging(options.count("debug"), options["log"].as<std::string>());
   
   SetupSignalHandler();
 
