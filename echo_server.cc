@@ -79,8 +79,8 @@ void InitLogging(bool open_debug, const std::string& log_dir) {
           "] [" << boost::log::expressions::attr<boost::log::attributes::current_process_id::value_type>("ProcessID") << 
           "-" << boost::log::expressions::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID") << "] [" <<
           boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <<
-          "] [" << boost::log::expressions::format_named_scope("Scope", boost::log::keywords::format = "%n[%f:%l]", 
-            boost::log::keywords::depth = 1) << "] " << boost::log::expressions::smessage;
+          "] " << boost::log::expressions::format_named_scope("Scope", boost::log::keywords::format = "%c[%F:%l] ", 
+            boost::log::keywords::depth = 1) << boost::log::expressions::smessage;
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_trace_debug_backend = BuildSinkBackend(log_dir, "trace_debug");
   boost::shared_ptr<sync_sink_frontend> sink_trace_debug_frontend(new sync_sink_frontend(sink_trace_debug_backend));
   sink_trace_debug_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= boost::log::trivial::debug && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") >= boost::log::trivial::trace);
