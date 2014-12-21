@@ -287,7 +287,7 @@ private:
       // case 1
       //LOG(debug) << "case 1";
     } else if (conn->status() == Connection::kError) { // case 2
-      LOG(debug) << "case 2";
+      //LOG(debug) << "case 2";
       conn->Close();
       conn_set_.erase(conn);
     } else if (conn->status() == Connection::kClosed) {// case 3
