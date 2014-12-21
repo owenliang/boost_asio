@@ -21,14 +21,7 @@ INCPATH=-I. \
   -I./include \
   -I./output \
   -I./output/include
-DEP_INCPATH=-I../third-64/boost \
-  -I../third-64/boost/include \
-  -I../third-64/boost/output \
-  -I../third-64/boost/output/include \
-  -I../third-64/tcmalloc \
-  -I../third-64/tcmalloc/include \
-  -I../third-64/tcmalloc/output \
-  -I../third-64/tcmalloc/output/include
+DEP_INCPATH=-I/usr/local/include/boost 
 
 #============ CCP vars ============
 CCHECK=@ccheck.py
@@ -96,88 +89,74 @@ output-bin:
 
 echo_server:echo_server_echo_server.o
 	@echo "[[1;32;40mCOMAKE:BUILD[0m][Target:'[1;32;40mecho_server[0m']"
-	$(CXX) echo_server_echo_server.o -Xlinker "-("  ../third-64/boost/lib/libboost_atomic.a \
-  ../third-64/boost/lib/libboost_chrono.a \
-  ../third-64/boost/lib/libboost_container.a \
-  ../third-64/boost/lib/libboost_context.a \
-  ../third-64/boost/lib/libboost_coroutine.a \
-  ../third-64/boost/lib/libboost_date_time.a \
-  ../third-64/boost/lib/libboost_exception.a \
-  ../third-64/boost/lib/libboost_filesystem.a \
-  ../third-64/boost/lib/libboost_graph.a \
-  ../third-64/boost/lib/libboost_locale.a \
-  ../third-64/boost/lib/libboost_log_setup.a \
-  ../third-64/boost/lib/libboost_math_c99.a \
-  ../third-64/boost/lib/libboost_math_c99f.a \
-  ../third-64/boost/lib/libboost_math_c99l.a \
-  ../third-64/boost/lib/libboost_math_tr1.a \
-  ../third-64/boost/lib/libboost_math_tr1f.a \
-  ../third-64/boost/lib/libboost_math_tr1l.a \
-  ../third-64/boost/lib/libboost_prg_exec_monitor.a \
-  ../third-64/boost/lib/libboost_program_options.a \
-  ../third-64/boost/lib/libboost_python.a \
-  ../third-64/boost/lib/libboost_random.a \
-  ../third-64/boost/lib/libboost_regex.a \
-  ../third-64/boost/lib/libboost_serialization.a \
-  ../third-64/boost/lib/libboost_signals.a \
-  ../third-64/boost/lib/libboost_system.a \
-  ../third-64/boost/lib/libboost_test_exec_monitor.a \
-  ../third-64/boost/lib/libboost_thread.a \
-  ../third-64/boost/lib/libboost_timer.a \
-  ../third-64/boost/lib/libboost_unit_test_framework.a \
-  ../third-64/boost/lib/libboost_wave.a \
-  ../third-64/boost/lib/libboost_wserialization.a \
-  ../third-64/tcmalloc/lib/libprofiler.a \
-  ../third-64/tcmalloc/lib/libtcmalloc.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_and_profiler.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_debug.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_minimal.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_minimal_debug.a -lpthread \
-  -lcrypto \
+	$(CXX) echo_server_echo_server.o -Xlinker "-("  /usr/local/lib/libboost_atomic.a \
+  /usr/local/lib/libboost_chrono.a \
+  /usr/local/lib/libboost_container.a \
+  /usr/local/lib/libboost_context.a \
+  /usr/local/lib/libboost_coroutine.a \
+  /usr/local/lib/libboost_date_time.a \
+  /usr/local/lib/libboost_exception.a \
+  /usr/local/lib/libboost_filesystem.a \
+  /usr/local/lib/libboost_graph.a \
+  /usr/local/lib/libboost_locale.a \
+  /usr/local/lib/libboost_log_setup.a \
+  /usr/local/lib/libboost_log.a \
+  /usr/local/lib/libboost_math_c99.a \
+  /usr/local/lib/libboost_math_c99f.a \
+  /usr/local/lib/libboost_math_c99l.a \
+  /usr/local/lib/libboost_math_tr1.a \
+  /usr/local/lib/libboost_math_tr1f.a \
+  /usr/local/lib/libboost_math_tr1l.a \
+  /usr/local/lib/libboost_prg_exec_monitor.a \
+  /usr/local/lib/libboost_program_options.a \
+  /usr/local/lib/libboost_random.a \
+  /usr/local/lib/libboost_regex.a \
+  /usr/local/lib/libboost_serialization.a \
+  /usr/local/lib/libboost_signals.a \
+  /usr/local/lib/libboost_system.a \
+  /usr/local/lib/libboost_test_exec_monitor.a \
+  /usr/local/lib/libboost_thread.a \
+  /usr/local/lib/libboost_timer.a \
+  /usr/local/lib/libboost_unit_test_framework.a \
+  /usr/local/lib/libboost_wave.a \
+  /usr/local/lib/libboost_wserialization.a \
   -lrt -Xlinker "-)" -o echo_server
 	mkdir -p ./output/bin
 	cp -f --link echo_server ./output/bin
 
 echo_client:echo_client_echo_client.o
 	@echo "[[1;32;40mCOMAKE:BUILD[0m][Target:'[1;32;40mecho_client[0m']"
-	$(CXX) echo_client_echo_client.o -Xlinker "-("  ../third-64/boost/lib/libboost_atomic.a \
-  ../third-64/boost/lib/libboost_chrono.a \
-  ../third-64/boost/lib/libboost_container.a \
-  ../third-64/boost/lib/libboost_context.a \
-  ../third-64/boost/lib/libboost_coroutine.a \
-  ../third-64/boost/lib/libboost_date_time.a \
-  ../third-64/boost/lib/libboost_exception.a \
-  ../third-64/boost/lib/libboost_filesystem.a \
-  ../third-64/boost/lib/libboost_graph.a \
-  ../third-64/boost/lib/libboost_locale.a \
-  ../third-64/boost/lib/libboost_log_setup.a \
-  ../third-64/boost/lib/libboost_math_c99.a \
-  ../third-64/boost/lib/libboost_math_c99f.a \
-  ../third-64/boost/lib/libboost_math_c99l.a \
-  ../third-64/boost/lib/libboost_math_tr1.a \
-  ../third-64/boost/lib/libboost_math_tr1f.a \
-  ../third-64/boost/lib/libboost_math_tr1l.a \
-  ../third-64/boost/lib/libboost_prg_exec_monitor.a \
-  ../third-64/boost/lib/libboost_program_options.a \
-  ../third-64/boost/lib/libboost_python.a \
-  ../third-64/boost/lib/libboost_random.a \
-  ../third-64/boost/lib/libboost_regex.a \
-  ../third-64/boost/lib/libboost_serialization.a \
-  ../third-64/boost/lib/libboost_signals.a \
-  ../third-64/boost/lib/libboost_system.a \
-  ../third-64/boost/lib/libboost_test_exec_monitor.a \
-  ../third-64/boost/lib/libboost_thread.a \
-  ../third-64/boost/lib/libboost_timer.a \
-  ../third-64/boost/lib/libboost_unit_test_framework.a \
-  ../third-64/boost/lib/libboost_wave.a \
-  ../third-64/boost/lib/libboost_wserialization.a \
-  ../third-64/tcmalloc/lib/libprofiler.a \
-  ../third-64/tcmalloc/lib/libtcmalloc.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_and_profiler.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_debug.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_minimal.a \
-  ../third-64/tcmalloc/lib/libtcmalloc_minimal_debug.a -lpthread \
-  -lcrypto \
+	$(CXX) echo_client_echo_client.o -Xlinker "-("  /usr/local/lib/libboost_atomic.a \
+  /usr/local/lib/libboost_chrono.a \
+  /usr/local/lib/libboost_container.a \
+  /usr/local/lib/libboost_context.a \
+  /usr/local/lib/libboost_coroutine.a \
+  /usr/local/lib/libboost_date_time.a \
+  /usr/local/lib/libboost_exception.a \
+  /usr/local/lib/libboost_filesystem.a \
+  /usr/local/lib/libboost_graph.a \
+  /usr/local/lib/libboost_locale.a \
+  /usr/local/lib/libboost_log_setup.a \
+  /usr/local/lib/libboost_log.a \
+  /usr/local/lib/libboost_math_c99.a \
+  /usr/local/lib/libboost_math_c99f.a \
+  /usr/local/lib/libboost_math_c99l.a \
+  /usr/local/lib/libboost_math_tr1.a \
+  /usr/local/lib/libboost_math_tr1f.a \
+  /usr/local/lib/libboost_math_tr1l.a \
+  /usr/local/lib/libboost_prg_exec_monitor.a \
+  /usr/local/lib/libboost_program_options.a \
+  /usr/local/lib/libboost_random.a \
+  /usr/local/lib/libboost_regex.a \
+  /usr/local/lib/libboost_serialization.a \
+  /usr/local/lib/libboost_signals.a \
+  /usr/local/lib/libboost_system.a \
+  /usr/local/lib/libboost_test_exec_monitor.a \
+  /usr/local/lib/libboost_thread.a \
+  /usr/local/lib/libboost_timer.a \
+  /usr/local/lib/libboost_unit_test_framework.a \
+  /usr/local/lib/libboost_wave.a \
+  /usr/local/lib/libboost_wserialization.a \
   -lrt -Xlinker "-)" -o echo_client
 	mkdir -p ./output/bin
 	cp -f --link echo_client ./output/bin
