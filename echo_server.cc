@@ -346,7 +346,7 @@ bool ParseCommands(int argc, char** argv, boost::program_options::variables_map*
       ("thread,t", boost::program_options::value<uint32_t>()->default_value(12), "number of threads of asio")
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port server binds to")
       ("config,c", boost::program_options::value<std::string>(), "read config from file")
-      ("log,l", boost::program_options::value<std::string>()->default_value("./server_log"), "the directory to write log")
+      ("log,l", boost::program_options::value<std::string>()->default_value("./serverlog"), "the directory to write log")
       ("debug,d", "open debug mode for logging");
   try {
     // ”≈œ»√¸¡Ó––

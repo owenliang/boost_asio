@@ -383,7 +383,7 @@ bool ParseCommands(int argc, char** argv, boost::program_options::variables_map*
       ("port,p", boost::program_options::value<unsigned short>()->required(), "the tcp port client connects to")
       ("concurrent,n", boost::program_options::value<uint32_t>()->default_value(1), "the number of connections to server")
       ("config,c", boost::program_options::value<std::string>(), "read config from file")
-      ("log,l", boost::program_options::value<std::string>()->default_value("./client_log"), "the directory to write log")
+      ("log,l", boost::program_options::value<std::string>()->default_value("./clientlog"), "the directory to write log")
       ("debug,d", "open debug mode for logging");
   try {
     // ”≈œ»√¸¡Ó––
