@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <exception>
 #include <iostream>
 #include <string>
@@ -58,11 +61,17 @@ boost::shared_ptr<boost::log::sinks::text_file_backend> BuildSinkBackend(const s
   }
   return backend;
 }
+pid_t gettid() {
+  return syscall(SYS_gettid);
+}
 void InitLogging(bool open_debug, const std::string& log_dir) {
-  // 添加通用属性(时间,进程ID,线程ID)
-  boost::log::add_common_attributes();
   // 获取core, 以便向其注册sink
   boost::shared_ptr<boost::log::core> core = boost::log::core::get();
+  // 添加通用属性(时间,进程ID,线程ID)
+  // 注: boost::log::add_common_attributes();函数添加的进程ID和线程ID是16进制的,我决定自定义linux订制的版本.
+  core->add_global_attribute("TimeStamp", boost::log::attributes::local_clock());
+  core->add_global_attribute("ProcessID", boost::log::attributes::make_function(&getpid));
+  core->add_global_attribute("ThreadID", boost::log::attributes::make_function(&gettid));
   // 添加作用域属性（函数名,源文件名,行号)
   core->add_global_attribute("Scope", boost::log::attributes::named_scope());
   // 忽略所有log库可能抛出的异常
@@ -76,36 +85,36 @@ void InitLogging(bool open_debug, const std::string& log_dir) {
   // 1,severity<=debug级别的输出到sink_trace_debug
   boost::log::formatter scope_formatter = boost::log::expressions::stream << "[" <<
           boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S") <<
-          "] [" << boost::log::expressions::attr<boost::log::attributes::current_process_id::value_type>("ProcessID") << 
-          "-" << boost::log::expressions::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID") << "] [" <<
-          boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <<
+          "] [" << boost::log::expressions::attr<pid_t>("ProcessID") << "-" << boost::log::expressions::attr<pid_t>("ThreadID") << 
+          "] [" << boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <<
           "] " << boost::log::expressions::format_named_scope("Scope", boost::log::keywords::format = "%c[%F:%l] ", 
-            boost::log::keywords::depth = 1) << boost::log::expressions::smessage;
+          boost::log::keywords::depth = 1) << boost::log::expressions::smessage;
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_trace_debug_backend = BuildSinkBackend(log_dir, "trace_debug");
   boost::shared_ptr<sync_sink_frontend> sink_trace_debug_frontend(new sync_sink_frontend(sink_trace_debug_backend));
-  sink_trace_debug_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= boost::log::trivial::debug && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") >= boost::log::trivial::trace);
+  sink_trace_debug_frontend->set_filter(
+      boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= boost::log::trivial::debug && 
+      boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") >= boost::log::trivial::trace);
   sink_trace_debug_frontend->set_formatter(scope_formatter);
   core->add_sink(sink_trace_debug_frontend);
   // 2,debug<severity<=warning级别到sink_info_warning
   boost::log::formatter non_scope_formatter = boost::log::expressions::stream << "[" <<
           boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S") <<
-          "] [" << boost::log::expressions::attr<boost::log::attributes::current_process_id::value_type>("ProcessID") << 
-          "-" << boost::log::expressions::attr<boost::log::attributes::current_thread_id::value_type>("ThreadID") << "] [" <<
-          boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <<
+          "] [" << boost::log::expressions::attr<pid_t>("ProcessID") << "-" << boost::log::expressions::attr<pid_t>("ThreadID") << 
+          "] [" << boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") << 
           "] " << boost::log::expressions::smessage;
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_info_warning_backend = BuildSinkBackend(log_dir, "info_warning");
   boost::shared_ptr<sync_sink_frontend> sink_info_warning_frontend(new sync_sink_frontend(sink_info_warning_backend));
-  sink_info_warning_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= 
-      boost::log::trivial::warning && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") > 
-    boost::log::trivial::debug);
+  sink_info_warning_frontend->set_filter(
+      boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= boost::log::trivial::warning && 
+      boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") > boost::log::trivial::debug);
   sink_info_warning_frontend->set_formatter(non_scope_formatter);
   core->add_sink(sink_info_warning_frontend);
   // 3,warning<severity<=fatal级别输出到sink_error_fatal
   boost::shared_ptr<boost::log::sinks::text_file_backend> sink_error_fatal_backend = BuildSinkBackend(log_dir, "error_fatal");
   boost::shared_ptr<sync_sink_frontend> sink_error_fatal_frontend(new sync_sink_frontend(sink_info_warning_backend));
-  sink_error_fatal_frontend->set_filter(boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= 
-      boost::log::trivial::fatal && boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") > 
-    boost::log::trivial::warning);
+  sink_error_fatal_frontend->set_filter(
+      boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") <= boost::log::trivial::fatal &&
+      boost::log::expressions::attr<boost::log::trivial::severity_level>("Severity") > boost::log::trivial::warning);
   sink_error_fatal_frontend->set_formatter(non_scope_formatter);
   core->add_sink(sink_error_fatal_frontend);
 }
