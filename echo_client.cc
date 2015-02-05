@@ -237,13 +237,14 @@ private:
   void ReadHandler(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (!error) { // 没有发生错误(包含被取消), 那么发起下一次读取.
       // 该函数读到一些数据就会返回, 正好适用于这里的echo逻辑. 如果希望读取指定长度完成前不返回, 使用async_read.
+      StringPtr msg(new std::string(msgbuf_, bytes_transferred));
       {
         boost::lock_guard<boost::mutex> guard(socket_mutex_);
         socket_->async_receive(boost::asio::buffer(msgbuf_, sizeof(msgbuf_)), boost::bind(&Connection::ReadHandler, shared_from_this(), _1, _2));
       }
       // printf("%.*s", (int)bytes_transferred, msgbuf_);
       // 这里展示一下如何在多线程asio下正确的使用async_write有序的发送echo, 并且待发送消息队列以便在socket失效时有机会发送消息重发.
-      EchoMsg(StringPtr(new std::string(msgbuf_, bytes_transferred)));
+      EchoMsg(msg);
     } else if (error == boost::asio::error::operation_aborted) {
       LOG(trace) << "Connection ReadHandler Canceled.";
     } else {
